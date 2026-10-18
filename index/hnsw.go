@@ -357,3 +357,14 @@ func (h *maxHeap) Pop() any {
 	*h = old[:len(old)-1]
 	return x
 }
+
+// Each calls fn for every live vector in insertion order.
+func (h *HNSW) Each(fn func(id string, vector []float32)) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, n := range h.nodes {
+		if !n.deleted {
+			fn(n.id, n.vector)
+		}
+	}
+}
