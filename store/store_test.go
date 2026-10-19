@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/Amineabdessalem/vecstore/index"
@@ -89,5 +90,28 @@ func TestGetDeleteDropList(t *testing.T) {
 	}
 	if _, err := s.Get("docs"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("want ErrNotFound, got %v", err)
+	}
+}
+
+func TestAutoCompactAfterManyDeletes(t *testing.T) {
+	s := New(index.DefaultHNSWConfig())
+	c, _ := s.Create("big", 2, index.Euclidean)
+	recs := make([]Record, 600)
+	for i := range recs {
+		recs[i] = Record{ID: fmt.Sprintf("r%d", i), Values: []float32{float32(i), 0}}
+	}
+	if err := c.Upsert(recs); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range recs[:400] {
+		c.Delete(r.ID)
+	}
+	info := c.Info()
+	if info.Count != 200 || info.Deleted >= autoCompactMin {
+		t.Errorf("expected auto-compaction, got %+v", info)
+	}
+	hits, _ := c.Search([]float32{599, 0}, SearchOptions{K: 1})
+	if hits[0].ID != recs[599].ID {
+		t.Errorf("search after compaction: %+v", hits)
 	}
 }

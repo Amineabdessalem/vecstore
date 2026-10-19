@@ -1,7 +1,7 @@
 # Roadmap
 
 - [ ] Write-ahead log so writes between snapshots survive a crash
-- [ ] Compaction: rebuild a collection's graph when soft-deleted nodes pass a threshold
+- [x] Compaction: rebuild a collection's graph when soft-deleted nodes pass a threshold
 - [x] Range filters on numeric metadata (`{"year": {"gte": 2020}}`)
 - [ ] Go client package and a small Python client
 - [ ] Prometheus metrics endpoint (request latency, collection sizes)

@@ -161,10 +161,12 @@ type Info struct {
 	Dim    int          `json:"dim"`
 	Metric index.Metric `json:"metric"`
 	Count  int          `json:"count"`
+	// Deleted counts soft-deleted nodes awaiting compaction.
+	Deleted int `json:"deleted"`
 }
 
 func (c *Collection) Info() Info {
-	return Info{Name: c.Name, Dim: c.idx.Dim(), Metric: c.idx.Metric(), Count: c.idx.Len()}
+	return Info{Name: c.Name, Dim: c.idx.Dim(), Metric: c.idx.Metric(), Count: c.idx.Len(), Deleted: c.idx.Deleted()}
 }
 
 // Upsert inserts or replaces records. It validates every record first so a
@@ -193,12 +195,29 @@ func (c *Collection) Upsert(records []Record) error {
 	return nil
 }
 
-// Delete removes a record and reports whether it existed.
+// autoCompactMin is the smallest number of deleted nodes that triggers an
+// automatic compaction; below it the rebuild isn't worth the pause.
+const autoCompactMin = 256
+
+// Delete removes a record and reports whether it existed. When deleted
+// nodes outnumber live ones the graph is compacted automatically.
 func (c *Collection) Delete(id string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.meta, id)
-	return c.idx.Delete(id)
+	ok := c.idx.Delete(id)
+	if d := c.idx.Deleted(); ok && d >= autoCompactMin && d > c.idx.Len() {
+		c.idx.Compact()
+	}
+	return ok
+}
+
+// Compact rebuilds the collection's graph without deleted nodes and
+// returns how many were removed.
+func (c *Collection) Compact() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.idx.Compact()
 }
 
 // Get returns a stored record. Cosine collections return the normalised vector.

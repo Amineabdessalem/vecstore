@@ -117,3 +117,18 @@ func TestRangeFilterOverHTTP(t *testing.T) {
 		t.Errorf("unknown operator should be 400, got %d", code)
 	}
 }
+
+func TestCompactEndpoint(t *testing.T) {
+	s := newServer()
+	do(t, s, "POST", "/collections", `{"name":"c","dim":1}`)
+	do(t, s, "PUT", "/collections/c/vectors", `{"vectors":[{"id":"a","values":[1]},{"id":"b","values":[2]}]}`)
+	do(t, s, "DELETE", "/collections/c/vectors/a", "")
+	_, info := do(t, s, "GET", "/collections/c", "")
+	if info["deleted"].(float64) != 1 {
+		t.Fatalf("info before compact: %v", info)
+	}
+	code, body := do(t, s, "POST", "/collections/c/compact", "")
+	if code != 200 || body["removed"].(float64) != 1 || body["count"].(float64) != 1 {
+		t.Errorf("compact: %d %v", code, body)
+	}
+}

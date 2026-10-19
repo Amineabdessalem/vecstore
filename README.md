@@ -79,6 +79,7 @@ applies operators `eq`, `ne`, `gt`, `gte`, `lt`, `lte` and `in`:
 | `POST` | `/collections` | Create `{name, dim, metric}` |
 | `GET` | `/collections/{name}` | Collection info and count |
 | `DELETE` | `/collections/{name}` | Drop a collection |
+| `POST` | `/collections/{name}/compact` | Rebuild the graph without deleted nodes |
 | `PUT` | `/collections/{name}/vectors` | Batch upsert `{vectors: [{id, values, metadata}]}` |
 | `GET` | `/collections/{name}/vectors/{id}` | Fetch a vector |
 | `DELETE` | `/collections/{name}/vectors/{id}` | Delete a vector |
@@ -102,6 +103,9 @@ neighbours (`2M` on layer 0), choosing neighbours that are closer to the new
 node than to each other so the graph keeps long-range links. Queries descend
 the same way and run a beam search of width `max(ef, k)` on layer 0. Deletes
 are soft: the node stays in the graph for routing but is never returned.
+When deleted nodes outnumber live ones (and there are at least 256), the
+collection rebuilds its graph from the live vectors; `POST .../compact` does
+the same on demand.
 
 ## Roadmap
 

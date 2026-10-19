@@ -121,3 +121,36 @@ func BenchmarkHNSWSearch(b *testing.B) {
 		_, _ = h.Search(qs[i%len(qs)], 10)
 	}
 }
+
+func TestHNSWCompact(t *testing.T) {
+	h, _ := NewHNSW(16, Euclidean, DefaultHNSWConfig())
+	data := randomVectors(1000, 16, 5)
+	for i, v := range data {
+		_ = h.Add(fmt.Sprint(i), v)
+	}
+	for i := 0; i < 1000; i += 2 {
+		h.Delete(fmt.Sprint(i))
+	}
+	if h.Deleted() != 500 || h.Len() != 500 {
+		t.Fatalf("before compact: deleted=%d len=%d", h.Deleted(), h.Len())
+	}
+	if removed := h.Compact(); removed != 500 {
+		t.Errorf("Compact removed %d, want 500", removed)
+	}
+	if h.Deleted() != 0 || h.Len() != 500 {
+		t.Errorf("after compact: deleted=%d len=%d", h.Deleted(), h.Len())
+	}
+	if h.Compact() != 0 {
+		t.Error("second compact should be a no-op")
+	}
+	// Every surviving vector is still its own nearest neighbour.
+	for i := 1; i < 1000; i += 50 {
+		res, _ := h.Search(data[i], 1)
+		if len(res) != 1 || res[0].ID != fmt.Sprint(i) {
+			t.Errorf("vector %d not found after compact: %+v", i, res)
+		}
+	}
+	if _, ok := h.Vector("0"); ok {
+		t.Error("deleted id visible after compact")
+	}
+}

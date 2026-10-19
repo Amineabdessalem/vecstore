@@ -368,3 +368,32 @@ func (h *HNSW) Each(fn func(id string, vector []float32)) {
 		}
 	}
 }
+
+// Deleted returns the number of soft-deleted nodes still in the graph.
+func (h *HNSW) Deleted() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.nodes) - h.liveCount
+}
+
+// Compact rebuilds the graph from live nodes only, reclaiming the memory
+// and search time spent on soft-deleted nodes. Live vectors are reinserted
+// in their original order. It returns the number of nodes removed.
+func (h *HNSW) Compact() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	old := h.nodes
+	removed := len(old) - h.liveCount
+	if removed == 0 {
+		return 0
+	}
+	h.nodes = make([]*node, 0, h.liveCount)
+	h.byID = make(map[string]int32, h.liveCount)
+	h.entry, h.maxLevel, h.liveCount = -1, 0, 0
+	for _, n := range old {
+		if !n.deleted {
+			h.insert(n.id, n.vector, h.randomLevel())
+		}
+	}
+	return removed
+}

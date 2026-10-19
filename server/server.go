@@ -37,6 +37,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /collections", s.createCollection)
 	s.mux.HandleFunc("GET /collections/{name}", s.getCollection)
 	s.mux.HandleFunc("DELETE /collections/{name}", s.dropCollection)
+	s.mux.HandleFunc("POST /collections/{name}/compact", s.compact)
 	s.mux.HandleFunc("PUT /collections/{name}/vectors", s.upsert)
 	s.mux.HandleFunc("GET /collections/{name}/vectors/{id}", s.getVector)
 	s.mux.HandleFunc("DELETE /collections/{name}/vectors/{id}", s.deleteVector)
@@ -99,6 +100,12 @@ func (s *Server) dropCollection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) compact(w http.ResponseWriter, r *http.Request) {
+	if c, ok := s.collection(w, r); ok {
+		writeJSON(w, http.StatusOK, map[string]int{"removed": c.Compact(), "count": c.Info().Count})
+	}
 }
 
 func (s *Server) upsert(w http.ResponseWriter, r *http.Request) {
