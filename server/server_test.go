@@ -98,3 +98,22 @@ func TestBadRequests(t *testing.T) {
 		t.Errorf("healthz: %d", code)
 	}
 }
+
+func TestRangeFilterOverHTTP(t *testing.T) {
+	s := newServer()
+	do(t, s, "POST", "/collections", `{"name":"papers","dim":2,"metric":"euclidean"}`)
+	do(t, s, "PUT", "/collections/papers/vectors", `{"vectors":[
+		{"id":"old","values":[0,0],"metadata":{"year":2015}},
+		{"id":"new","values":[0.5,0],"metadata":{"year":2024}},
+		{"id":"newer","values":[3,3],"metadata":{"year":2025}}]}`)
+	_, body := do(t, s, "POST", "/collections/papers/search",
+		`{"vector":[0,0],"k":5,"filter":{"year":{"gte":2020}}}`)
+	hits := body["hits"].([]any)
+	if len(hits) != 2 || hits[0].(map[string]any)["id"] != "new" {
+		t.Errorf("range filter: %v", body)
+	}
+	code, _ := do(t, s, "POST", "/collections/papers/search", `{"vector":[0,0],"filter":{"year":{"after":2020}}}`)
+	if code != 400 {
+		t.Errorf("unknown operator should be 400, got %d", code)
+	}
+}

@@ -14,6 +14,7 @@ and a distroless Docker image.
   neighbour-diversity heuristic, tunable `M`, `efConstruction` and `efSearch`
 - **Cosine, Euclidean and dot-product** distance
 - **Collections** with per-vector JSON metadata and **filtered search**
+  (equality, ranges and set membership)
 - **JSON HTTP API** with batch upserts, get/delete by id and per-query `ef`
 - **Snapshots**: periodic and on-shutdown, written atomically (temp file + rename)
 - **Exact flat index** used as ground truth to measure HNSW recall in tests
@@ -62,6 +63,13 @@ curl -XPUT localhost:8080/collections/docs/vectors -d '{
 # k-NN search, optionally filtered and with a custom ef
 curl -XPOST localhost:8080/collections/docs/search -d '{"vector":[1,0,0],"k":2}'
 curl -XPOST localhost:8080/collections/docs/search -d '{"vector":[1,0,0],"k":2,"filter":{"lang":"rust"},"ef":128}'
+```
+
+Filters combine conditions with AND. A plain value means equality; an object
+applies operators `eq`, `ne`, `gt`, `gte`, `lt`, `lte` and `in`:
+
+```json
+{"filter": {"lang": {"in": ["go", "rust"]}, "year": {"gte": 2020, "lt": 2025}}}
 ```
 
 | Method | Path | Description |

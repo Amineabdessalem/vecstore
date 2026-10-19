@@ -38,16 +38,113 @@ type Hit struct {
 	Metadata Metadata `json:"metadata,omitempty"`
 }
 
-// Filter keeps hits whose metadata equals every key/value pair it holds.
+// Filter keeps hits whose metadata satisfies every condition it holds.
+//
+// A plain value means equality: {"lang": "go"}. An object applies
+// operators: {"year": {"gte": 2020, "lt": 2025}} or {"lang": {"in": ["go", "rust"]}}.
+// Supported operators are eq, ne, gt, gte, lt, lte and in.
 type Filter map[string]any
 
 func (f Filter) match(m Metadata) bool {
-	for k, v := range f {
-		if fmt.Sprint(m[k]) != fmt.Sprint(v) {
-			return false
+	for k, cond := range f {
+		v, present := m[k]
+		ops, isOps := cond.(map[string]any)
+		if !isOps {
+			if !present || !equal(v, cond) {
+				return false
+			}
+			continue
+		}
+		for op, arg := range ops {
+			if !present || !apply(op, v, arg) {
+				return false
+			}
 		}
 	}
 	return true
+}
+
+func apply(op string, v, arg any) bool {
+	switch op {
+	case "eq":
+		return equal(v, arg)
+	case "ne":
+		return !equal(v, arg)
+	case "in":
+		list, ok := arg.([]any)
+		if !ok {
+			return false
+		}
+		for _, x := range list {
+			if equal(v, x) {
+				return true
+			}
+		}
+		return false
+	case "gt", "gte", "lt", "lte":
+		a, ok1 := number(v)
+		b, ok2 := number(arg)
+		if !ok1 || !ok2 {
+			return false
+		}
+		switch op {
+		case "gt":
+			return a > b
+		case "gte":
+			return a >= b
+		case "lt":
+			return a < b
+		default:
+			return a <= b
+		}
+	default:
+		return false
+	}
+}
+
+// equal compares numbers by value (JSON gives float64, Go callers may use
+// int) and everything else by its printed form.
+func equal(a, b any) bool {
+	if x, ok := number(a); ok {
+		y, ok := number(b)
+		return ok && x == y
+	}
+	return fmt.Sprint(a) == fmt.Sprint(b)
+}
+
+func number(v any) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	}
+	return 0, false
+}
+
+// Validate reports unknown operators so typos fail loudly instead of
+// silently matching nothing.
+func (f Filter) Validate() error {
+	for k, cond := range f {
+		ops, ok := cond.(map[string]any)
+		if !ok {
+			continue
+		}
+		for op := range ops {
+			switch op {
+			case "eq", "ne", "gt", "gte", "lt", "lte", "in":
+			default:
+				return fmt.Errorf("filter on %q: unknown operator %q", k, op)
+			}
+		}
+	}
+	return nil
 }
 
 // Collection is a single HNSW index plus metadata.
@@ -127,6 +224,9 @@ type SearchOptions struct {
 func (c *Collection) Search(query []float32, opt SearchOptions) ([]Hit, error) {
 	if opt.K <= 0 {
 		opt.K = 10
+	}
+	if err := opt.Filter.Validate(); err != nil {
+		return nil, err
 	}
 	fetch, ef := opt.K, opt.Ef
 	if len(opt.Filter) > 0 {
