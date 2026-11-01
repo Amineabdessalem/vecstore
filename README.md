@@ -85,12 +85,24 @@ applies operators `eq`, `ne`, `gt`, `gte`, `lt`, `lte` and `in`:
 | `DELETE` | `/collections/{name}/vectors/{id}` | Delete a vector |
 | `POST` | `/collections/{name}/search` | `{vector, k, ef?, filter?}` → `{hits: [{id, distance, metadata}]}` |
 
+### Go client
+
+```go
+c := client.New("http://localhost:8080", nil)
+c.CreateCollection(ctx, "docs", 384, index.Cosine)
+c.Upsert(ctx, "docs", []store.Record{{ID: "a", Values: vec, Metadata: store.Metadata{"lang": "en"}}})
+hits, err := c.Search(ctx, "docs", client.SearchRequest{Vector: q, K: 5, Filter: store.Filter{"lang": "en"}})
+```
+
+Missing collections or vectors return `client.ErrNotFound`; other failures return `*client.APIError` with the HTTP status.
+
 ## Layout
 
 ```
 index/    distance metrics, exact Flat index, HNSW graph
 store/    collections, metadata filters, snapshots
 server/   HTTP handlers
+client/   typed Go client
 cmd/vecstore/  server binary
 ```
 
