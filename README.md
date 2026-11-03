@@ -75,6 +75,7 @@ applies operators `eq`, `ne`, `gt`, `gte`, `lt`, `lte` and `in`:
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/healthz` | Liveness check |
+| `GET` | `/metrics` | Prometheus metrics: requests and latency per route, vectors and deleted nodes per collection |
 | `GET` | `/collections` | List collections |
 | `POST` | `/collections` | Create `{name, dim, metric}` |
 | `GET` | `/collections/{name}` | Collection info and count |

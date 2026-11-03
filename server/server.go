@@ -20,11 +20,13 @@ type Server struct {
 	store *store.Store
 	log   *slog.Logger
 	mux   *http.ServeMux
+
+	metrics *metrics
 }
 
 // New returns a server for s.
 func New(s *store.Store, log *slog.Logger) *Server {
-	srv := &Server{store: s, log: log, mux: http.NewServeMux()}
+	srv := &Server{store: s, log: log, mux: http.NewServeMux(), metrics: newMetrics()}
 	srv.routes()
 	return srv
 }
@@ -33,6 +35,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	s.mux.HandleFunc("GET /metrics", s.serveMetrics)
 	s.mux.HandleFunc("GET /collections", s.listCollections)
 	s.mux.HandleFunc("POST /collections", s.createCollection)
 	s.mux.HandleFunc("GET /collections/{name}", s.getCollection)
@@ -50,6 +53,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	s.mux.ServeHTTP(rec, r)
+	// r.Pattern is set by the mux, so metrics are labelled by route, not by raw path.
+	s.metrics.observe(r.Pattern, rec.status, time.Since(start))
 	s.log.Info("request", "method", r.Method, "path", r.URL.Path, "status", rec.status, "duration", time.Since(start))
 }
 
