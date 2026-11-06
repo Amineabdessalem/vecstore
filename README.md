@@ -45,6 +45,10 @@ docker run -p 8080:8080 -v vecstore-data:/data vecstore
 Flags: `-addr`, `-data` (snapshot directory; empty disables persistence),
 `-snapshot-every` (default `5m`), `-m`, `-ef-construction`, `-ef-search`.
 
+To require API keys, pass `-api-keys key1,key2` (or set `VECSTORE_API_KEYS`).
+Every request except `GET /healthz` then needs `Authorization: Bearer <key>`;
+the Go client sends it with `client.New(url, nil).WithAPIKey(key)`.
+
 ## API
 
 ```bash

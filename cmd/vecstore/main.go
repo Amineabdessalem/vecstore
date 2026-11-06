@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,7 +26,11 @@ func main() {
 	efs := flag.Int("ef-search", 64, "default HNSW candidate list size while searching")
 	dataDir := flag.String("data", "", "directory for snapshots (empty disables persistence)")
 	every := flag.Duration("snapshot-every", 5*time.Minute, "how often to write a snapshot")
+	apiKeys := flag.String("api-keys", "", "comma-separated bearer tokens required on every request except /healthz (or set VECSTORE_API_KEYS)")
 	flag.Parse()
+	if *apiKeys == "" {
+		*apiKeys = os.Getenv("VECSTORE_API_KEYS")
+	}
 
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg := index.HNSWConfig{M: *m, EfConstruction: *efc, EfSearch: *efs, Seed: time.Now().UnixNano()}
@@ -57,7 +62,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              *addr,
-		Handler:           server.New(st, log),
+		Handler:           server.RequireAPIKeys(server.New(st, log), strings.Split(*apiKeys, ",")),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

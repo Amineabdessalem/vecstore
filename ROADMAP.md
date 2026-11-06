@@ -8,4 +8,4 @@
 - [x] Prometheus metrics endpoint (request latency, collection sizes)
 - [ ] Recall/latency benchmark on a public dataset (e.g. SIFT1M subset) with an `ef` sweep
 - [ ] Scalar quantisation (int8) to cut memory 4x
-- [ ] API keys via a bearer-token middleware
+- [x] API keys via a bearer-token middleware

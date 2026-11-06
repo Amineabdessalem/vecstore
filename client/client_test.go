@@ -87,3 +87,17 @@ func TestErrors(t *testing.T) {
 		t.Fatalf("want 400 for wrong dim, got %v", err)
 	}
 }
+
+func TestAPIKey(t *testing.T) {
+	srv := server.New(store.New(index.DefaultHNSWConfig()), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ts := httptest.NewServer(server.RequireAPIKeys(srv, []string{"secret"}))
+	t.Cleanup(ts.Close)
+	c := New(ts.URL, ts.Client())
+	var apiErr *APIError
+	if _, err := c.Collections(context.Background()); !errors.As(err, &apiErr) || apiErr.Status != 401 {
+		t.Fatalf("want 401 without key, got %v", err)
+	}
+	if _, err := c.WithAPIKey("secret").Collections(context.Background()); err != nil {
+		t.Fatalf("with key: %v", err)
+	}
+}

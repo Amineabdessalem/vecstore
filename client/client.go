@@ -29,8 +29,16 @@ func (e *APIError) Error() string { return fmt.Sprintf("vecstore: %d: %s", e.Sta
 
 // Client talks to one vecstore server.
 type Client struct {
-	base string
-	http *http.Client
+	base   string
+	http   *http.Client
+	apiKey string
+}
+
+// WithAPIKey returns a copy of c that sends key as a bearer token.
+func (c *Client) WithAPIKey(key string) *Client {
+	cp := *c
+	cp.apiKey = key
+	return &cp
 }
 
 // New returns a client for a server such as "http://localhost:8080".
@@ -65,6 +73,9 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
