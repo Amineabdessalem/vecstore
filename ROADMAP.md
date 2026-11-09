@@ -6,6 +6,7 @@
 - [x] Go client package (`client/`)
 - [ ] Small Python client
 - [x] Prometheus metrics endpoint (request latency, collection sizes)
-- [ ] Recall/latency benchmark on a public dataset (e.g. SIFT1M subset) with an `ef` sweep
+- [x] Recall/latency `ef` sweep tool (`cmd/vecbench`, synthetic clustered data)
+- [ ] Run the sweep on a public dataset (e.g. SIFT1M subset)
 - [ ] Scalar quantisation (int8) to cut memory 4x
 - [x] API keys via a bearer-token middleware

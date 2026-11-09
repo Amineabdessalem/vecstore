@@ -19,6 +19,8 @@ jobs:
       - run: go test -race ./...
       - name: Benchmark HNSW search
         run: go test ./index -run '^$' -bench HNSWSearch -benchtime 2000x
+      - name: Recall sweep
+        run: go run ./cmd/vecbench -n 5000 -queries 100
 
   docker:
     runs-on: ubuntu-latest

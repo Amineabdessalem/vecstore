@@ -31,6 +31,21 @@ Measured by the test suite and benchmark on 4 CPU cores:
 
 Defaults: `M=16`, `efConstruction=200`, `efSearch=64`.
 
+`cmd/vecbench` sweeps `ef` and reports recall against exact search, latency
+and speed-up. On 10,000 clustered 64-d vectors (cosine, 200 queries, k=10):
+
+```
+$ go run ./cmd/vecbench -n 10000
+   ef  recall@k  latency/query  speed-up vs exact
+   10     0.960           45µs              60.4x
+   20     0.995           70µs              39.2x
+   40     1.000          152µs              18.1x
+   80     1.000          117µs              23.5x
+  160     1.000          196µs              14.0x
+```
+
+Timings vary by machine; recall depends only on the data, `M`, `efConstruction` and `ef`.
+
 ## Run it
 
 ```bash
