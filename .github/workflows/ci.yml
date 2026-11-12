@@ -34,3 +34,25 @@ jobs:
           curl -fs -XPOST localhost:8080/collections -d '{"name":"ci","dim":2}'
           curl -fs -XPUT localhost:8080/collections/ci/vectors -d '{"vectors":[{"id":"a","values":[1,0]}]}'
           curl -fs -XPOST localhost:8080/collections/ci/search -d '{"vector":[1,0],"k":1}' | grep '"id":"a"'
+
+  python-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Start server
+        run: |
+          go build -o vecstore ./cmd/vecstore
+          ./vecstore -addr 127.0.0.1:8080 -api-keys ci-key &
+          sleep 1
+      - name: Client tests
+        working-directory: clients/python
+        env:
+          VECSTORE_URL: http://127.0.0.1:8080
+          VECSTORE_API_KEY: ci-key
+        run: python -m unittest -v

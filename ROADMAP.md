@@ -4,7 +4,7 @@
 - [x] Compaction: rebuild a collection's graph when soft-deleted nodes pass a threshold
 - [x] Range filters on numeric metadata (`{"year": {"gte": 2020}}`)
 - [x] Go client package (`client/`)
-- [ ] Small Python client
+- [x] Small Python client (`clients/python`, standard library only)
 - [x] Prometheus metrics endpoint (request latency, collection sizes)
 - [x] Recall/latency `ef` sweep tool (`cmd/vecbench`, synthetic clustered data)
 - [ ] Run the sweep on a public dataset (e.g. SIFT1M subset)

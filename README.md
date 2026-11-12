@@ -116,6 +116,17 @@ hits, err := c.Search(ctx, "docs", client.SearchRequest{Vector: q, K: 5, Filter:
 
 Missing collections or vectors return `client.ErrNotFound`; other failures return `*client.APIError` with the HTTP status.
 
+### Python client
+
+```python
+from vecstore_client import Client  # pip install ./clients/python
+
+c = Client("http://localhost:8080", api_key="...")
+c.create_collection("docs", 384)
+c.upsert("docs", [{"id": "a", "values": vec, "metadata": {"lang": "en"}}])
+hits = c.search("docs", query, k=5, filter={"lang": "en"})
+```
+
 ## Layout
 
 ```
@@ -123,6 +134,7 @@ index/    distance metrics, exact Flat index, HNSW graph
 store/    collections, metadata filters, snapshots
 server/   HTTP handlers
 client/   typed Go client
+clients/python/  Python client (standard library only)
 cmd/vecstore/  server binary
 ```
 
