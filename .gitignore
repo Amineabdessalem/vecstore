@@ -1,3 +1,6 @@
 /vecstore
 /data/
 *.snap
+__pycache__/
+*.pyc
+*.egg-info/
