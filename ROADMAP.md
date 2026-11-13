@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Write-ahead log so writes between snapshots survive a crash
+- [x] Write-ahead log so writes between snapshots survive a crash
 - [x] Compaction: rebuild a collection's graph when soft-deleted nodes pass a threshold
 - [x] Range filters on numeric metadata (`{"year": {"gte": 2020}}`)
 - [x] Go client package (`client/`)

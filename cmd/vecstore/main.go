@@ -26,6 +26,7 @@ func main() {
 	efs := flag.Int("ef-search", 64, "default HNSW candidate list size while searching")
 	dataDir := flag.String("data", "", "directory for snapshots (empty disables persistence)")
 	every := flag.Duration("snapshot-every", 5*time.Minute, "how often to write a snapshot")
+	walSync := flag.Bool("wal-sync", false, "fsync the write-ahead log on every write (safer, slower)")
 	apiKeys := flag.String("api-keys", "", "comma-separated bearer tokens required on every request except /healthz (or set VECSTORE_API_KEYS)")
 	flag.Parse()
 	if *apiKeys == "" {
@@ -43,17 +44,27 @@ func main() {
 			os.Exit(1)
 		}
 		snapPath = filepath.Join(*dataDir, "vecstore.snap")
-		if err := st.LoadFile(snapPath); err != nil {
-			log.Error("load snapshot", "path", snapPath, "err", err)
+		walPath := filepath.Join(*dataDir, "vecstore.wal")
+		replayed, err := st.Recover(snapPath, walPath)
+		if err != nil {
+			log.Error("recover", "dir", *dataDir, "err", err)
 			os.Exit(1)
 		}
-		log.Info("loaded snapshot", "path", snapPath, "collections", len(st.List()))
+		log.Info("recovered", "collections", len(st.List()), "wal_entries", replayed)
+		w, err := store.OpenWAL(walPath, *walSync)
+		if err != nil {
+			log.Error("open wal", "path", walPath, "err", err)
+			os.Exit(1)
+		}
+		defer w.Close()
+		st.AttachWAL(w)
 	}
 	save := func() {
 		if snapPath == "" {
 			return
 		}
-		if err := st.SaveFile(snapPath); err != nil {
+		// A checkpoint writes the snapshot and drops the log entries it covers.
+		if err := st.Checkpoint(snapPath); err != nil {
 			log.Error("save snapshot", "err", err)
 			return
 		}

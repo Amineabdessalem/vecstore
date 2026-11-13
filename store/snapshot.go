@@ -70,6 +70,9 @@ func (s *Store) ReadSnapshot(r io.Reader) error {
 		}
 	}
 	s.mu.Lock()
+	for _, c := range fresh.collections {
+		c.store = s
+	}
 	s.collections = fresh.collections
 	s.mu.Unlock()
 	return nil

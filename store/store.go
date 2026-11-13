@@ -153,6 +153,8 @@ type Collection struct {
 	mu   sync.RWMutex
 	idx  *index.HNSW
 	meta map[string]Metadata
+	// store is the owner, used to log writes to its WAL.
+	store *Store
 }
 
 // Info describes a collection.
@@ -172,6 +174,10 @@ func (c *Collection) Info() Info {
 // Upsert inserts or replaces records. It validates every record first so a
 // bad batch leaves the collection unchanged.
 func (c *Collection) Upsert(records []Record) error {
+	return c.upsert(records, true)
+}
+
+func (c *Collection) upsert(records []Record, log bool) error {
 	for i, r := range records {
 		if r.ID == "" {
 			return fmt.Errorf("record %d: %w", i, index.ErrEmptyID)
@@ -182,6 +188,11 @@ func (c *Collection) Upsert(records []Record) error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if log {
+		if err := c.store.logEntry(walEntry{Op: "upsert", Collection: c.Name, Records: records}); err != nil {
+			return err
+		}
+	}
 	for _, r := range records {
 		if err := c.idx.Add(r.ID, r.Values); err != nil {
 			return err
@@ -201,9 +212,21 @@ const autoCompactMin = 256
 
 // Delete removes a record and reports whether it existed. When deleted
 // nodes outnumber live ones the graph is compacted automatically.
+// If the delete cannot be written to the WAL it is not applied and Delete
+// reports false.
 func (c *Collection) Delete(id string) bool {
+	return c.delete(id, true)
+}
+
+func (c *Collection) delete(id string, log bool) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if _, ok := c.idx.Vector(id); !ok {
+		return false
+	}
+	if log && c.store.logEntry(walEntry{Op: "delete", Collection: c.Name, ID: id}) != nil {
+		return false
+	}
 	delete(c.meta, id)
 	ok := c.idx.Delete(id)
 	if d := c.idx.Deleted(); ok && d >= autoCompactMin && d > c.idx.Len() {
@@ -279,6 +302,7 @@ type Store struct {
 	mu          sync.RWMutex
 	collections map[string]*Collection
 	cfg         index.HNSWConfig
+	wal         *WAL
 }
 
 // New returns an empty store whose collections use cfg.
@@ -288,6 +312,10 @@ func New(cfg index.HNSWConfig) *Store {
 
 // Create adds a new empty collection.
 func (s *Store) Create(name string, dim int, metric index.Metric) (*Collection, error) {
+	return s.create(name, dim, metric, true)
+}
+
+func (s *Store) create(name string, dim int, metric index.Metric, log bool) (*Collection, error) {
 	if !nameRE.MatchString(name) {
 		return nil, ErrBadName
 	}
@@ -303,7 +331,12 @@ func (s *Store) Create(name string, dim int, metric index.Metric) (*Collection, 
 	if _, ok := s.collections[name]; ok {
 		return nil, ErrExists
 	}
-	c := &Collection{Name: name, idx: idx, meta: map[string]Metadata{}}
+	if log {
+		if err := s.logEntry(walEntry{Op: "create", Collection: name, Dim: dim, Metric: idx.Metric()}); err != nil {
+			return nil, err
+		}
+	}
+	c := &Collection{Name: name, idx: idx, meta: map[string]Metadata{}, store: s}
 	s.collections[name] = c
 	return c, nil
 }
@@ -321,10 +354,19 @@ func (s *Store) Get(name string) (*Collection, error) {
 
 // Drop deletes a collection.
 func (s *Store) Drop(name string) error {
+	return s.drop(name, true)
+}
+
+func (s *Store) drop(name string, log bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.collections[name]; !ok {
 		return ErrNotFound
+	}
+	if log {
+		if err := s.logEntry(walEntry{Op: "drop", Collection: name}); err != nil {
+			return err
+		}
 	}
 	delete(s.collections, name)
 	return nil

@@ -60,6 +60,11 @@ docker run -p 8080:8080 -v vecstore-data:/data vecstore
 Flags: `-addr`, `-data` (snapshot directory; empty disables persistence),
 `-snapshot-every` (default `5m`), `-m`, `-ef-construction`, `-ef-search`.
 
+With `-data`, every write is appended to a write-ahead log (`vecstore.wal`)
+before it is applied, and each snapshot checkpoints and truncates the log. On
+start the server loads the snapshot and replays the log, so writes since the
+last snapshot survive a crash or `kill -9`. Add `-wal-sync` to fsync each write.
+
 To require API keys, pass `-api-keys key1,key2` (or set `VECSTORE_API_KEYS`).
 Every request except `GET /healthz` then needs `Authorization: Bearer <key>`;
 the Go client sends it with `client.New(url, nil).WithAPIKey(key)`.
